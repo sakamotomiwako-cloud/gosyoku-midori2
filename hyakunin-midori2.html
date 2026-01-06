@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>百人一首 4択ゲーム（緑札20首→10問／復習・読み上げ・和風演出）</title>
+  <style>
+    :root{
+      --ink:#1a1a1a;
+
+      /* 和風ポップ配色 */
+      --aka:#e53935;     /* 朱 */
+      --beni:#ff4f7b;    /* 紅 */
+      --ai:#1e5aa8;      /* 藍 */
+      --wakakusa:#2e9b6d;/* 若草 */
+      --fuji:#7b4ae2;    /* 藤 */
+      --kin:#d6b25e;     /* 金 */
+      --washi:#fbf6ea;   /* 和紙 */
+      --washi2:#f7efe0;
+
+      --card: rgba(255,255,255,.80);
+      --shadow: 0 14px 30px rgba(0,0,0,.14);
+      --border: rgba(0,0,0,.08);
+    }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      color:var(--ink);
+      font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      background:
+        radial-gradient(900px 520px at 18% 12%, rgba(214,178,94,.22), transparent 58%),
+        radial-gradient(760px 520px at 88% 18%, rgba(214,178,94,.15), transparent 60%),
+        radial-gradient(900px 700px at 55% 105%, rgba(255,79,123,.10), transparent 60%),
+        radial-gradient(800px 600px at 10% 85%, rgba(30,90,168,.10), transparent 60%),
+        linear-gradient(180deg, var(--washi), var(--washi2));
+      position: relative;
+    }
+
+    /* さりげない麻の葉風パターン（薄く） */
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:.10;
+      background:
+        linear-gradient(30deg, rgba(0,0,0,.18) 12%, transparent 12.5%, transparent 87%, rgba(0,0,0,.18) 87.5%, rgba(0,0,0,.18)),
+        linear-gradient(150deg, rgba(0,0,0,.18) 12%, transparent 12.5%, transparent 87%, rgba(0,0,0,.18) 87.5%, rgba(0,0,0,.18)),
+        linear-gradient(90deg, rgba(0,0,0,.18) 2%, transparent 2.5%, transparent 97%, rgba(0,0,0,.18) 97.5%, rgba(0,0,0,.18));
+      background-size: 56px 56px;
+      mix-blend-mode: multiply;
+    }
+
+    .wrap{ max-width: 920px; margin: 0 auto; padding: 18px; }
+
+    /* カード（和紙＋金縁） */
+    .card{
+      background: var(--card);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(214,178,94,.55);
+      position:relative;
+      overflow:hidden;
+    }
+    .card::after{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background:
+        radial-gradient(480px 180px at 20% 0%, rgba(214,178,94,.25), transparent 60%),
+        radial-gradient(520px 200px at 90% 10%, rgba(214,178,94,.18), transparent 60%);
+      pointer-events:none;
+    }
+
+    h1{
+      font-size: 18px;
+      margin: 0 0 10px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      letter-spacing:.02em;
+      position:relative;
+    }
+    h1::before{
+      content:"🌸🎴";
+      font-size: 20px;
+    }
+    .meta{ color:#3a3a3a; font-size: 13px; line-height:1.6; position:relative; }
+
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; position:relative; }
+
+    button{
+      border:0;
+      border-radius: 14px;
+      padding: 11px 14px;
+      cursor:pointer;
+      font-weight: 800;
+      letter-spacing:.02em;
+      transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
+      box-shadow: 0 10px 18px rgba(0,0,0,.12);
+      position:relative;
+      z-index:1;
+    }
+    button:active{ transform: translateY(1px) scale(.99); }
+    button:disabled{ opacity:.45; cursor:not-allowed; box-shadow:none; }
+
+    #btnStart{ background: linear-gradient(135deg, var(--aka), var(--beni)); color:#fff; }
+    #btnNextGame{ background: linear-gradient(135deg, var(--ai), #2f80ed); color:#fff; }
+    #btnReview{ background: linear-gradient(135deg, var(--wakakusa), #3cc48a); color:#fff; }
+    #btnSpeak, button.secondary{
+      background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(255,255,255,.68));
+      color:#222;
+      border: 1px solid var(--border);
+    }
+
+    .pill{
+      background: linear-gradient(135deg, rgba(255,255,255,.95), rgba(255,255,255,.65));
+      border:1px solid rgba(214,178,94,.45);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color:#222;
+      position:relative;
+      z-index:1;
+    }
+
+    /* 上の句：短冊っぽく */
+    .kami{
+      font-size: 26px;
+      line-height: 1.58;
+      margin: 10px 0 0;
+      padding: 14px 14px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,.88), rgba(255,255,255,.60));
+      border: 1px solid rgba(214,178,94,.45);
+      position:relative;
+      overflow:hidden;
+    }
+    .kami::before{
+      content:"";
+      position:absolute;
+      left:12px;
+      right:12px;
+      top:10px;
+      height:2px;
+      background: linear-gradient(90deg, transparent, rgba(214,178,94,.9), transparent);
+      opacity:.8;
+    }
+    .kami::after{
+      content:"";
+      position:absolute;
+      left:12px;
+      right:12px;
+      bottom:10px;
+      height:2px;
+      background: linear-gradient(90deg, transparent, rgba(214,178,94,.7), transparent);
+      opacity:.7;
+    }
+
+    #choices{ display:grid; gap:10px; }
+
+    button.choice{
+      width:100%;
+      text-align:left;
+      padding: 14px 14px;
+      background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(255,255,255,.66));
+      color:#111;
+      font-weight: 800;
+      border:1px solid rgba(0,0,0,.07);
+      box-shadow: 0 10px 18px rgba(0,0,0,.10);
+    }
+    button.choice:nth-child(1){ border-left: 10px solid var(--beni); }
+    button.choice:nth-child(2){ border-left: 10px solid var(--aka); }
+    button.choice:nth-child(3){ border-left: 10px solid var(--ai); }
+    button.choice:nth-child(4){ border-left: 10px solid var(--fuji); }
+    button.choice:hover{ filter: brightness(1.03); }
+
+    .result{
+      font-size: 16px;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 16px;
+      border:1px solid rgba(0,0,0,.06);
+      box-shadow: 0 10px 18px rgba(0,0,0,.08);
+    }
+    .ok{
+      background: linear-gradient(135deg, rgba(46,155,109,.18), rgba(255,255,255,.82));
+      border-color: rgba(46,155,109,.25);
+    }
+    .ng{
+      background: linear-gradient(135deg, rgba(255,79,123,.20), rgba(255,255,255,.82));
+      border-color: rgba(255,79,123,.25);
+    }
+
+    .footer{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    /* 間違い札リストも和紙っぽく */
+    #missList .result.ng{ border: 1px solid rgba(255,79,123,.28); }
+    #missList > div[style*="border-radius"]{
+      background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(255,255,255,.70)) !important;
+      border: 1px solid rgba(214,178,94,.35) !important;
+    }
+
+    @media (max-width: 520px){
+      .kami{ font-size: 22px; }
+      button{ width:100%; }
+      .row{ gap:8px; }
+    }
+
+    /* ===== 和風エフェクト（正解：金粉／不正解：暗くなる） ===== */
+    .effect-layer{
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      overflow: hidden;
+    }
+    .confetti{
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      opacity: .95;
+      animation: fall 900ms ease-out forwards;
+    }
+    .confetti.ok{
+      background: radial-gradient(circle at 30% 30%, #fff7cc, #d6b25e);
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(214,178,94,.9);
+    }
+    .confetti.ng{
+      background: linear-gradient(135deg, #ff9db6, #ff4f7b);
+      border-radius: 70% 30% 70% 30%;
+    }
+    @keyframes fall{
+      0%{ transform: translateY(-10px) rotate(0deg) scale(1); opacity: 1; }
+      100%{ transform: translateY(120vh) rotate(240deg) scale(.9); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>百人一首 4択ゲーム（緑札20首→10問／復習・読み上げ・和風演出）</h1>
+      <div class="row">
+        <button id="btnStart">スタート</button>
+        <button id="btnNextGame" class="secondary" disabled>次に進む（次の10問）</button>
+        <button id="btnReview" class="secondary" disabled>間違えた札だけ復習</button>
+        <button id="btnSpeak" class="secondary" disabled>上の句を読み上げ</button>
+        <span class="pill" id="voiceStatus">音声：未確認</span>
+      </div>
+      <p class="meta">
+        ・対象：五色百人一首 緑黄札　20首／1ゲーム10問<br>
+        ・不正解のときだけ「正しい下の句」を読み上げます<br>
+        ・ゲーム終了時に「間違えた札一覧」を表示します<br>
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="footer">
+        <div class="meta" id="progress">未開始</div>
+        <div class="meta" id="score">スコア：0 / 0</div>
+      </div>
+
+      <div class="kami" id="kami">「スタート」を押してください。</div>
+
+      <div style="margin-top:12px" id="choices"></div>
+      <div id="result"></div>
+      <div id="missList" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <div class="effect-layer" id="effectLayer"></div>
+
+<script>
+/**
+ * 五色百人一首 黄札　20首
+ * format:
+ * { id: 1, kami: "上の句", shimo: "下の句" }
+ */
+const POEMS = [
+  {
+    id: 1,
+    kami: "わが庵は 都のたつみ しかぞ住む",
+    shimo: "世を宇治山と 人は言ふなり",
+    kamiRead: "わがいおは みやこのたつみ しかぞすむ",
+    shimoRead: "よを うじやまと ひとはいうなり",
+  },
+  {
+    id: 2,
+    kami: "花の色は 移りにけりな いたづらに",
+    shimo: "わが身世にふる ながめせしまに",
+    kamiRead: "はなのいろは うつりにけりな いたずらに",
+    shimoRead: "わがみよにふる ながめせしまに",
+  },
+  {
+    id: 3,
+    kami: "わたの原 八十島かけて 漕ぎ出でぬと",
+    shimo: "人には告げよ 海人のつり舟",
+    kamiRead: "わたのはら やそしまかけて こぎいでぬと",
+    shimoRead: "ひとにはつげよ あまのつりぶね",
+  },
+  {
+    id: 4,
+    kami: "君がため 春の野に出でて 若菜摘む",
+    shimo: "わが衣手に 雪は降りつつ",
+    kamiRead: "きみがため はるののにいでて わかなつむ",
+    shimoRead: "わがころもでに ゆきはふりつつ",
+  },
+  {
+    id: 5,
+    kami: "ちはやぶる 神代も聞かず 竜田川",
+    shimo: "からくれなゐに 水くくるとは",
+    kamiRead: "ちはやぶる かみよもきかず たつたがわ",
+    shimoRead: "からくれないに みずくくるとは",
+  },
+  {
+    id: 6,
+    kami: "わびぬれば 今はた同じ 難波なる",
+    shimo: "みをつくしても 逢はむとぞ思ふ",
+    kamiRead: "わびぬれば いまはたおなじ なにわなる",
+    shimoRead: "みをつくしても あわむとぞおもう",
+  },
+  {
+    id: 7,
+    kami: "月見れば 千々に物こそ 悲しけれ",
+    shimo: "わが身ひとつの 秋にはあらねど",
+    kamiRead: "つきみれば ちぢにものこそ かなしけれ",
+    shimoRead: "わがみひとつの あきにはあらねど",
+  },
+  {
+    id: 8,
+    kami: "小倉山 峰のもみぢ葉 心あらば",
+    shimo: "今ひとたびの 行幸待たなむ",
+    kamiRead: "おぐらやま みねのもみじば こころあらば",
+    shimoRead: "いまひとたびの みゆきまたなむ",
+  },
+  {
+    id: 9,
+    kami: "心あてに 折らばや折らむ 初霜の",
+    shimo: "置きまどはせる 白菊の花",
+    kamiRead: "こころあてに おらばやおらむ はつしもの",
+    shimoRead: "おきまどわせる しらぎくのはな",
+  },
+  {
+    id: 10,
+    kami: "人はいさ 心も知らず ふるさとは",
+    shimo: "花ぞ昔の 香に匂ひける",
+    kamiRead: "ひとはいさ こころもしらず ふるさとは",
+    shimoRead: "はなぞむかしの かににおいける",
+  },
+  {
+    id: 11,
+    kami: "夏の夜は まだ宵ながら 明けぬるを",
+    shimo: "雲のいづこに 月宿るらむ",
+    kamiRead: "なつのよは まだよいながら あけぬるを",
+    shimoRead: "くものいづこに つきやどるらむ",
+  },
+  {
+    id: 12,
+    kami: "忘らるる 身をば思はず 誓ひてし",
+    shimo: "人の命の 惜しくもあるかな",
+    kamiRead: "わすらるる みをばおもわず ちかいてし",
+    shimoRead: "ひとのいのちの おしくもあるかな",
+  },
+  {
+    id: 13,
+    kami: "恋すてふ わが名はまだき 立ちにけり",
+    shimo: "人知れずこそ 思ひ初めしか",
+    kamiRead: "こいすてふ わがなはまだき たちにけり",
+    shimoRead: "ひとしれずこそ おもいそめしか",
+  },
+  {
+    id: 14,
+    kami: "契りきな かたみに袖を しぼりつつ",
+    shimo: "末の松山 波越さじとは",
+    kamiRead: "ちぎりきな かたみにそでを しぼりつつ",
+    shimoRead: "すえのまつやま なみこさじとは",
+  },
+  {
+    id: 15,
+    kami: "忘れじの 行く末までは かたければ",
+    shimo: "今日を限りの 命ともがな",
+    kamiRead: "わすれじの ゆくすえまでは かたければ",
+    shimoRead: "きょうをかぎりの いのちともがな",
+  },
+  {
+    id: 16,
+    kami: "やすらはで 寝なましものを 小夜ふけて",
+    shimo: "かたぶくまでの 月を見しかな",
+    kamiRead: "やすらわで ねなましものを さよふけて",
+    shimoRead: "かたぶくまでの つきをみしかな",
+  },
+  {
+    id: 17,
+    kami: "心にも あらで憂き世に 長らへば",
+    shimo: "恋しかるべき 夜半の月かな",
+    kamiRead: "こころにも あらでうきよに ながらえば",
+    shimoRead: "こいしかるべき よわのつきかな",
+  },
+  {
+    id: 18,
+    kami: "夕されば 門田の稲葉 おとづれて",
+    shimo: "葦のまろやに 秋風ぞ吹く",
+    kamiRead: "ゆうされば かどたのいなば おとずれて",
+    shimoRead: "あしのまろやに あきかぜぞふく",
+  },
+  {
+    id: 19,
+    kami: "わが袖は 潮干に見えぬ 沖の石の",
+    shimo: "人こそ知らね 乾く間もなし",
+    kamiRead: "わがそでは しおひにみえぬ おきのいしの",
+    shimoRead: "ひとこそしらね かわくまもなし",
+  },
+  {
+    id: 20,
+    kami: "世の中は 常にもがもな 渚こぐ",
+    shimo: "海人の小舟の 綱手かなしも",
+    kamiRead: "よのなかは つねにもがもな なぎさこぐ",
+    shimoRead: "あまのおぶねの つなでかなしも",
+  },
+];
+
+const GAME_QUESTIONS = 10;
+const CHOICES = 4;
+
+let currentSet = [];
+let qIndex = 0;
+let score = 0;
+let locked = false;
+
+let missedIds = new Set();   // 間違えた札（id）
+let missedMap = new Map();   // id -> {kami, shimo}（一覧表示用）
+let mode = "main";           // "main" or "review"
+
+const $ = (id)=>document.getElementById(id);
+const btnStart = $("btnStart");
+const btnNextGame = $("btnNextGame");
+const btnReview = $("btnReview");
+const btnSpeak = $("btnSpeak");
+const voiceStatus = $("voiceStatus");
+const progress = $("progress");
+const scoreBox = $("score");
+const kamiBox = $("kami");
+const choicesBox = $("choices");
+const resultBox = $("result");
+const missList = $("missList");
+const effectLayer = $("effectLayer");
+
+// ---------- ユーティリティ ----------
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function pickRandom(arr, n){
+  return shuffle(arr).slice(0, n);
+}
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
+}
+
+// ---------- 音声読み上げ（Web Speech API） ----------
+function speechAvailable(){
+  return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+}
+
+// ★読み上げが終わるまで待てる版
+function speakAsync(text){
+  return new Promise((resolve) => {
+    if(!speechAvailable()){
+      resolve();
+      return;
+    }
+    window.speechSynthesis.cancel();
+
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ja-JP";
+    u.rate = 1.0;
+    u.pitch = 1.0;
+    u.volume = 1.0;
+
+    u.onend = () => resolve();
+    u.onerror = () => resolve(); // 失敗しても止めない
+
+    window.speechSynthesis.speak(u);
+
+    // 念のため：onendが来ない端末対策（最大6秒で解除）
+    setTimeout(() => resolve(), 6000);
+  });
+}
+
+(function initVoice(){
+  voiceStatus.textContent = speechAvailable() ? "音声：対応（端末依存）" : "音声：非対応";
+})();
+
+// ===== 和風エフェクト制御 =====
+function showEffect(type){
+  const count = 18; // 粒の数（多いほど派手）
+  for(let i=0;i<count;i++){
+    const el = document.createElement("div");
+    el.className = `confetti ${type}`;
+    el.style.left = (Math.random()*100) + "vw";
+    el.style.top = "-20px";
+    el.style.animationDelay = (Math.random()*120) + "ms";
+    el.style.transform = `rotate(${Math.random()*180}deg)`;
+    effectLayer.appendChild(el);
+    setTimeout(()=> el.remove(), 1200);
+  }
+}
+
+// ---------- ゲーム開始 ----------
+function newMainGame(){
+  mode = "main";
+  missedIds = new Set();
+  missedMap = new Map();
+
+  currentSet = pickRandom(POEMS, GAME_QUESTIONS);
+  qIndex = 0;
+  score = 0;
+
+  btnNextGame.disabled = true;
+  btnReview.disabled = true;
+  btnSpeak.disabled = false;
+
+  renderQuestion();
+}
+
+function newReviewGame(){
+  mode = "review";
+  const missed = POEMS.filter(p => missedIds.has(p.id));
+
+  if(missed.length === 0){
+    kamiBox.textContent = "間違えた札がありません。すごい！";
+    choicesBox.innerHTML = "";
+    resultBox.innerHTML = "";
+    missList.innerHTML = "";
+    btnReview.disabled = true;
+    btnSpeak.disabled = true;
+    return;
+  }
+
+  currentSet = pickRandom(missed, Math.min(GAME_QUESTIONS, missed.length));
+  qIndex = 0;
+  score = 0;
+
+  btnNextGame.disabled = true;
+  btnReview.disabled = true;
+  btnSpeak.disabled = false;
+
+  renderQuestion();
+}
+
+// ---------- 出題 ----------
+function renderQuestion(){
+  locked = false;
+  resultBox.innerHTML = "";
+  missList.innerHTML = ""; // 出題中は一覧を消す
+
+  if(qIndex >= currentSet.length){
+    // 終了画面
+    const total = currentSet.length;
+    progress.textContent = (mode === "main") ? "ゲーム終了" : "復習 終了";
+    scoreBox.textContent = `スコア：${score} / ${total}`;
+
+    if(mode === "main"){
+      const missCount = missedIds.size;
+      kamiBox.textContent = `おつかれさまでした！ ${score} / ${total} 正解（間違い：${missCount} 首）`;
+      choicesBox.innerHTML = "";
+      btnNextGame.disabled = false;
+      btnReview.disabled = (missCount === 0);
+      btnSpeak.disabled = true;
+
+      // ★通常ゲーム終了時のみ「間違い札一覧」表示
+      renderMissList();
+
+    } else {
+      const remaining = missedIds.size;
+      kamiBox.textContent = `復習おつかれさまでした！ ${score} / ${total} 正解（まだ苦手：${remaining} 首）`;
+      choicesBox.innerHTML = "";
+      btnNextGame.disabled = false;
+      btnReview.disabled = (remaining === 0);
+      btnSpeak.disabled = true;
+      // 復習終了時は一覧表示しない
+    }
+    return;
+  }
+
+  const q = currentSet[qIndex];
+
+  progress.textContent = (mode === "main")
+    ? `第 ${qIndex+1} 問 / ${currentSet.length}`
+    : `復習 ${qIndex+1} 問 / ${currentSet.length}`;
+
+  scoreBox.textContent = `スコア：${score} / ${qIndex}`;
+  kamiBox.textContent = q.kami;
+
+  // 4択（正解1 + 不正解3）
+  const wrongPool = POEMS.filter(p => p.id !== q.id);
+  const wrongs = pickRandom(wrongPool, CHOICES-1);
+  const options = shuffle([q, ...wrongs]).map(p => ({
+    id: p.id, text: p.shimo, correct: p.id === q.id
+  }));
+
+  choicesBox.innerHTML = options.map((o, idx)=>`
+    <button class="choice" data-id="${o.id}" data-correct="${o.correct}">
+      ${idx+1}. ${escapeHtml(o.text)}
+    </button>
+  `).join("");
+
+  [...choicesBox.querySelectorAll("button.choice")].forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      if(locked) return;
+      locked = true;
+
+      const isCorrect = btn.dataset.correct === "true";
+
+      // ★間違い記録（通常ゲーム）
+      if(mode === "main"){
+        if(!isCorrect){
+          missedIds.add(q.id);
+          missedMap.set(q.id, { kami: q.kami, shimo: q.shimo });
+        }
+      }
+
+      // ★復習：正解したら苦手から外す（定着）
+      if(mode === "review"){
+        if(isCorrect) missedIds.delete(q.id);
+        else missedIds.add(q.id);
+      }
+
+      if(isCorrect) score++;
+
+      showResult(isCorrect, q.shimo);
+
+      // ★次に進む条件：
+      //  - 正解：従来通り 900ms 後に次へ
+      //  - 不正解：下の句の読み上げが終わってから次へ（読み上げが動かない端末は即進行）
+      const goNext = () => {
+        if (speechAvailable()) window.speechSynthesis.cancel(); // 読み上げ残り防止
+        qIndex++;
+        renderQuestion();
+      };
+
+      if(!isCorrect && speechAvailable()){
+        setTimeout(async () => {
+          await speakAsync(q.shimo); // 正しい下の句
+          goNext();
+        }, 200);
+      } else {
+        setTimeout(goNext, 900);
+      }
+    });
+  });
+}
+
+// ---------- 正誤表示（※読み上げはクリック処理側で制御） ----------
+function showResult(isCorrect, correctText){
+  const cls = isCorrect ? "ok" : "ng";
+  const head = isCorrect ? "正解！" : "ちがう…";
+  resultBox.innerHTML = `
+    <div class="result ${cls}">
+      <strong>${head}</strong><br>
+      正しい下の句：${escapeHtml(correctText)}
+    </div>
+  `;
+
+  // ★エフェクト発動
+  showEffect(isCorrect ? "ok" : "ng");
+}
+
+// ---------- 間違い札一覧（通常ゲーム終了時） ----------
+function renderMissList(){
+  const missed = [...missedMap.entries()].map(([id, v]) => ({ id, ...v }));
+
+  if(missed.length === 0){
+    missList.innerHTML = `<div class="result ok"><strong>全問正解！</strong> 間違えた札はありません。</div>`;
+    return;
+  }
+
+  const items = missed.map((m, i) => `
+    <div style="background:#fff; border:1px solid #e7eaf4; border-radius:12px; padding:10px; margin-top:8px;">
+      <div style="font-weight:800; margin-bottom:6px;">${i+1}.（間違い）</div>
+      <div style="font-size:15px; line-height:1.5;"><strong>上の句：</strong>${escapeHtml(m.kami)}</div>
+      <div style="font-size:15px; line-height:1.5; margin-top:4px;"><strong>下の句：</strong>${escapeHtml(m.shimo)}</div>
+    </div>
+  `).join("");
+
+  missList.innerHTML = `
+    <div class="result ng">
+      <strong>今回 間違えた札（${missed.length}首）</strong><br>
+      「間違えた札だけ復習」を押すと、ここから出題します。
+    </div>
+    ${items}
+  `;
+}
+
+// ---------- ボタン ----------
+btnStart.addEventListener("click", async ()=>{
+  newMainGame();
+  if(speechAvailable()){
+    await speakAsync("はじめます"); // 初回操作で音声を許可されやすくする
+  }
+});
+
+btnNextGame.addEventListener("click", ()=>{
+  newMainGame();
+});
+
+btnReview.addEventListener("click", ()=>{
+  newReviewGame();
+});
+
+btnSpeak.addEventListener("click", ()=>{
+  if(qIndex < currentSet.length){
+    // 上の句読み上げ（待たなくてOKだが、重なり防止でasync版）
+    speakAsync(currentSet[qIndex].kami);
+  }
+});
+</script>
+</body>
+</html>
